@@ -1,2 +1,3 @@
 # Ladder
-Combination of SILAC and Label Free Quantification
+
+Quantification code for qSTORM and qPC-MAP
