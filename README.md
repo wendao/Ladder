@@ -2,6 +2,8 @@
 
 Quantification code for qSTORM and qPC-MAP
 
+![sketch](docs/Ladder.png)
+
 ## qSTORM
 ```
 cd examples/qSTORM
