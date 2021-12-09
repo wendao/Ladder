@@ -125,7 +125,7 @@ def process(name, Ls, Hs, Rs):
       real_mark = i
       break
   if real_mark == 0:
-    if real_mass < 50: real_mark=16
+    if real_mass < 80: real_mark=16
     if real_mass > 200: real_mark=1
   print "real_mark:", real_mark, real_mass
 
@@ -283,9 +283,10 @@ def process(name, Ls, Hs, Rs):
       print "OUT:", t
     ax1.set_title("\n".join(tnames))
     ax1.set_yticks(xtics)
+    ax1.set_xticks([-1,0,1,2,3])
     ax1.axvline(0,0,Nfrac,linestyle='--',linewidth=1,c='black')
     rcut = log2(ratio_cutoff)
-    ax1.axvline(-rcut,0,Nfrac,linestyle='--',linewidth=0.5,c='black')
+    #ax1.axvline(-rcut,0,Nfrac,linestyle='--',linewidth=0.5,c='black')
     ax1.axvline( rcut,0,Nfrac,linestyle='--',linewidth=0.5,c='black')
     for i in xrange(Nfrac):
       ax1.axhline(i+1, -5, 5, linestyle='--', linewidth=0.4, c='grey', alpha=0.5)
@@ -302,10 +303,19 @@ def process(name, Ls, Hs, Rs):
     ax2.set_title("Mass: "+str(real_mass))
     sumL = np.sum(Ls)
     sumH = np.sum(Hs)
+    #perctL = Ls / sumL * 100
+    #perctH = Hs / sumH * 100
+    #txtL = [ str(t)+"%" for t in perctL ]
     #ax2.plot(Ls,xtics, linewidth=2)
     #ax2.plot(Hs,xtics)
-    ax2.barh( xtics, Ls, c='red' )
-    ax2.barh( xtics, Hs, c='blue' )
+    ax2.barh( xtics-0.2, Ls, 0.4, color = "red" )
+    ax2.barh( xtics+0.2, Hs, 0.4, color = "blue")
+    gap = (sumL+sumH)/2.0/100
+    for i, l, h in zip( xtics, Ls, Hs ):
+      pL = l / sumL * 100
+      pH = h / sumH * 100
+      if pL > 0.1: ax2.text( l+gap, i-0.1, "%3.1f%%" % pL, fontsize=7 )
+      if pH > 0.1: ax2.text( h+gap, i+0.3, "%3.1f%%" % pH, fontsize=7 )
 
     #zoom in
     #y_max_l = np.max( [l for (l,r) in zip(Ls, Rs) if r>ratio_cutoff] )
