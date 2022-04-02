@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 import sys
-from math import fabs, isnan
+from math import fabs, isnan, ceil, log10
 from scipy import stats
 import numpy as np
 from numpy import log2, log10
@@ -107,7 +107,8 @@ es = lines[0].strip().split('\t')
 for i, e in enumerate(es):
   tags[e] = i
 
-pdf = matplotlib.backends.backend_pdf.PdfPages("outputs.pdf")
+pdf1 = matplotlib.backends.backend_pdf.PdfPages("outputs-filtered.pdf")
+pdf2 = matplotlib.backends.backend_pdf.PdfPages("outputs-others.pdf")
 
 def process(name, Ls, Hs, Rs):
   # real mass
@@ -250,92 +251,123 @@ def process(name, Ls, Hs, Rs):
     print("Warning: no intensity or ratio")
     return
   if np.nanmax(Rs) > ratio_cutoff:
-    #check gap
-    maxInt_l = np.argmax(Ls)
-    maxInt_h = np.argmax(Hs)
-    if maxInt_l != maxInt_h:
-      print("Warning: L/H peaks don't match")
-    mono_ndx = np.max([maxInt_l, maxInt_h])
-    print("Mono peak:", mono_ndx)
-    top_band = -1
-    for ii in range(mono_ndx):
-      if Rs[ii]>ratio_cutoff:
-        top_band = ii
-        print("Top band:", ii+1)
-        break
-    if top_band == -1:
-      print("Warning: No top band found!")
-      return
-    with_gap = False
-    for ii in range(top_band+1, mono_ndx):
-      if isnan(Rs[ii]):
-        print("Gap found at:", ii+1)
-        with_gap = True
-        break
-    if not with_gap:
-      print("No gap! skipping ...")
-      return
+      pdf = pdf1
+  else:
+      pdf = pdf2
+  #check gap
+  maxInt_l = np.argmax(Ls)
+  maxInt_h = np.argmax(Hs)
+  if maxInt_l != maxInt_h:
+    print("Warning: L/H peaks don't match")
+  mono_ndx = np.max([maxInt_l, maxInt_h])
+  print("Mono peak:", mono_ndx)
+  top_band = -1
+  for ii in range(mono_ndx):
+    if Rs[ii]>ratio_cutoff:
+      top_band = ii
+      print("Top band:", ii+1)
+      break
+  if top_band == -1:
+    print("Warning: No top band found!")
+    #return
+    pdf = pdf2
+  with_gap = False
+  for ii in range(top_band+1, mono_ndx):
+    if isnan(Rs[ii]):
+      print("Gap found at:", ii+1)
+      with_gap = True
+      break
+  if not with_gap:
+    print("No gap! skipping ...")
+    #return
+    pdf = pdf2
 
-    f, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
-    plt.gca().invert_yaxis()
-    tnames = [ t for t in name.split(';') if "CON_" not in t ]
-    for t in tnames:
-      print "OUT:", t
-    ax1.set_title("\n".join(tnames))
-    ax1.set_yticks(xtics)
-    ax1.set_xticks([-1,0,1,2,3])
-    ax1.axvline(0,0,Nfrac,linestyle='--',linewidth=1,c='black')
-    rcut = log2(ratio_cutoff)
-    #ax1.axvline(-rcut,0,Nfrac,linestyle='--',linewidth=0.5,c='black')
-    ax1.axvline( rcut,0,Nfrac,linestyle='--',linewidth=0.5,c='black')
-    for i in xrange(Nfrac):
-      ax1.axhline(i+1, -5, 5, linestyle='--', linewidth=0.4, c='grey', alpha=0.5)
-    newRs = []
-    for r in Rs:
-      if log2(r)>4.0: newRs.append(4.0)
-      elif log2(r)<-4.0: newRs.append(-4.0)
-      else:
-        newRs.append(log2(r))
-    ax1.scatter(newRs, xtics, c='orange')
-    ax1.axhline( real_mark, -5, 5, linestyle='-', linewidth=1, c='black')
-    ax1.set_xlim([-1,4])
-    
-    ax2.set_title("Mass: "+str(real_mass))
-    sumL = np.sum(Ls)
-    sumH = np.sum(Hs)
-    #perctL = Ls / sumL * 100
-    #perctH = Hs / sumH * 100
-    #txtL = [ str(t)+"%" for t in perctL ]
-    #ax2.plot(Ls,xtics, linewidth=2)
-    #ax2.plot(Hs,xtics)
-    ax2.barh( xtics-0.2, Ls, 0.4, color = "red" )
-    ax2.barh( xtics+0.2, Hs, 0.4, color = "blue")
-    gap = (sumL+sumH)/2.0/100
-    for i, l, h in zip( xtics, Ls, Hs ):
-      pL = l / sumL * 100
-      pH = h / sumH * 100
-      if pL > 0.1: ax2.text( l+gap, i-0.1, "%3.1f%%" % pL, fontsize=7 )
-      if pH > 0.1: ax2.text( h+gap, i+0.3, "%3.1f%%" % pH, fontsize=7 )
+  #check second peak's intensity
+  if pdf == pdf1:
+    y_max_l = np.max( [l for (l,r) in zip(Ls, Rs) if r>ratio_cutoff] )
+    y_max_h = np.max( [h for (h,r) in zip(Hs, Rs) if r>ratio_cutoff] )
+    y_max_1 = np.max( [y_max_l, y_max_h] )
+    if y_max_1 < 10.0:
+        #return
+        pdf = pdf2
+  else:
+      #no shift
+      y_max_l = 0.0
+      y_max_h = 0.0
+      y_max_1 = 0.0
 
-    #zoom in
-    #y_max_l = np.max( [l for (l,r) in zip(Ls, Rs) if r>ratio_cutoff] )
-    #y_max_h = np.max( [h for (h,r) in zip(Hs, Rs) if r>ratio_cutoff] )
-    #y_max_1 = np.max( [y_max_l, y_max_h] )
-    #y_max_2 = np.max( Ls )
-    #new_Ls = []
-    #new_Hs = []
-    #for l, h in zip(Ls, Hs):
-    #  new_Ls.append(l/y_max_1*y_max_2/1.5)
-    #  new_Hs.append(h/y_max_1*y_max_2/1.5)
-    #ax2.barh( xtics-0.2, new_Ls, 0.2, color='orange' )
-    #ax2.barh( xtics,     new_Hs, 0.2, color='red' )
-    #ax2.set_xlim([0, y_max_2*1.2])
-    plt.grid(True, axis='y', linestyle="--", alpha=0.5)
+  f, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
+  plt.gca().invert_yaxis()
+  tnames = [ t for t in name.split(';') if "CON_" not in t ]
+  tnames = [ "|".join(t.split("|")[1:]) for t in tnames ]
+  for t in tnames:
+    print "OUT:", t
+  ax1.set_title("\n".join(tnames), loc="right")
+  ax1.set_yticks(xtics)
+  ax1.set_xticks([-1,0,1,2,3,4])
+  ax1.axvline(0,0,Nfrac,linestyle='--',linewidth=1,c='black')
+  rcut = log2(ratio_cutoff)
+  #ax1.axvline(-rcut,0,Nfrac,linestyle='--',linewidth=0.5,c='black')
+  ax1.axvline( rcut,0,Nfrac,linestyle='--',linewidth=0.5,c='black')
+  for i in xrange(Nfrac+1):
+    ax1.axhline(i+0.5, -5, 5, linestyle='--', linewidth=0.4, c='grey', alpha=0.5)
+  newRs = []
+  for r in Rs:
+    if log2(r)>4.0: newRs.append(4.0)
+    elif log2(r)<-4.0: newRs.append(-4.0)
+    else:
+      newRs.append(log2(r))
+  ax1.scatter(newRs, xtics, c='orange')
+  ax1.axhline( real_mark, -5, 5, linestyle='-', linewidth=1, c='black')
+  ax1.set_xlim([-1,4.5])
+  ax1.set_xlabel("$log_2(H/L)$")
+  
+  ax2.set_title("(MW: "+str(real_mass)+" kDa)", loc="left")
+  sumL = np.sum(Ls)
+  sumH = np.sum(Hs)
+  #perctL = Ls / sumL * 100
+  #perctH = Hs / sumH * 100
+  #txtL = [ str(t)+"%" for t in perctL ]
+  #ax2.plot(Ls,xtics, linewidth=2)
+  #ax2.plot(Hs,xtics)
 
-    f.subplots_adjust(wspace=0)
-    pdf.savefig(f)
-    plt.close('all')
-    print("...")
+  if y_max_1>10.0:
+    ne = ceil(log10(y_max_1)) - 1
+  else:
+    ne = 0
+  base_ten = 10.0**ne
+  print("peak2:", y_max_1, ne, base_ten)
+  
+  ax2.barh( xtics-0.2, np.array(Ls)/base_ten, 0.4, color = "red" )
+  ax2.barh( xtics+0.2, np.array(Hs)/base_ten, 0.4, color = "blue")
+  #gap = (sumL+sumH)/2.0/100
+
+  #zoom in
+
+  #new_Ls = []
+  #new_Hs = []
+  #for l, h in zip(Ls, Hs):
+  #  new_Ls.append(l/y_max_1*y_max_2/1.5)
+  #  new_Hs.append(h/y_max_1*y_max_2/1.5)
+  #ax2.barh( xtics-0.2, new_Ls, 0.2, color='orange' )
+  #ax2.barh( xtics,     new_Hs, 0.2, color='red' )
+
+  for i, l, h in zip( xtics, Ls, Hs ):
+    pL = l / sumL * 100
+    pH = h / sumH * 100
+    if pL > 0.05: ax2.text( y_max_1*1.22/base_ten, i-0.1, "%4.2f%%" % pL, fontsize=7, color="red" )
+    if pH > 0.05: ax2.text( y_max_1*1.22/base_ten, i+0.3, "%4.2f%%" % pH, fontsize=7, color="blue" )
+
+  ax2.set_xlim([0, y_max_1*1.2/base_ten])
+  ax2.set_xlabel(r"$LFQ( \times 10^%d)$" % ne)
+  #plt.grid(True, axis='y', linestyle="--", alpha=0.5)
+  for i in xrange(Nfrac+1):
+    ax2.axhline(i+0.5, 0, y_max_1*1.2/base_ten, linestyle='--', linewidth=0.4, c='grey', alpha=0.5)
+
+  f.subplots_adjust(wspace=0)
+  pdf.savefig(f)
+  plt.close('all')
+  print("...")
 
 #scan
 for l in lines[1:]:
@@ -376,5 +408,6 @@ for l in lines[1:]:
   elif sum_its > 10.0:
     process(pros, raw_intens_L, raw_intens_H, ratios)
 
-pdf.close()
+pdf1.close()
+pdf2.close()
 
