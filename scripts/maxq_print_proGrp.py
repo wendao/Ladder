@@ -13,6 +13,7 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.backends.backend_pdf
 import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
 
 its = "Intensity "
 lfq = "LFQ intensity "
@@ -217,34 +218,6 @@ def process(name, Ls, Hs, Rs):
   if real_peak_ndx_h>0:
     print "realH", name, real_peak_ndx_h, map_frac_mass[real_peak_ndx_h], real_mass, rate_h, p_h
 
-  #fit gaussian peaks
-  #print params
-  #popt, pcov = curve_fit( gaussian, x, y, p0=params )
-  #print popt
-  
-  #old version
-  #if np.nanmax(Rs) > ratio_cutoff:
-  #  #output pdf
-  #  fig = plt.figure(21)
-  #  plt.xlim([0,16])
-  #  #ymax = np.max( [h for (h,r) in zip(Hs, Rs) if r>ratio_cutoff] )
-  #  ymax = np.max( [l for (l,r) in zip(Ls, Rs) if r>ratio_cutoff] )
-
-  #  plt.subplot(211)
-  #  plt.title(name)
-  #  plt.bar( np.array(range(len(Rs)))-0.2, Ls, color="b", width=0.4, edgecolor='b', label="L" )
-  #  plt.bar( np.array(range(len(Rs)))+0.2, Hs, color='r', width=0.4, edgecolor='r', label="H" )
-  #  plt.subplot(212)
-  #  plt.title("Mass: "+str(real_mass))
-  #  plt.ylim([0, ymax*1.2])
-  #  plt.bar( np.array(range(len(Rs)))-0.2, Ls, color="b", width=0.4, edgecolor='b', label="L" )
-  #  plt.bar( np.array(range(len(Rs)))+0.2, Hs, color='r', width=0.4, edgecolor='r', label="H" )
-
-  #  plt.xticks(np.arange(len(Rs)), frac_xtics, rotation=45)
-
-  #  pdf.savefig(fig)
-  #  plt.close('all')
-
   #new version
   xtics = np.arange(Nfrac)+1
   if np.all(np.isnan(Rs)):
@@ -296,12 +269,35 @@ def process(name, Ls, Hs, Rs):
       y_max_h = 0.0
       y_max_1 = 0.0
 
-  f, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
-  plt.gca().invert_yaxis()
+  y_max_0 = np.max([np.max(Ls), np.max(Hs)])
+
+  f = plt.figure() #constrained_layout=True
+  AX = gridspec.GridSpec(1,3)
+  AX.update(wspace = 0.04)
+
+  ax1  = f.add_subplot(AX[:,0])
+  ax1.invert_yaxis()
+  if pdf == pdf1:
+    ax2 = f.add_subplot(AX[:,1])
+    ax3 = f.add_subplot(AX[:,2])
+    ax2.invert_yaxis()
+    ax3.invert_yaxis()
+    ax2.yaxis.set_visible(False)
+    ax2.tick_params(labelright=False)
+    ax2.spines['right'].set_linestyle((0, (1, 5)))
+    #ax3.yaxis.tick_right()
+    ax3.yaxis.set_visible(False)
+    ax3.spines['left'].set_linestyle((0, (1, 5)))
+  else:
+    ax2 = f.add_subplot(AX[:,1:3])
+    ax2.invert_yaxis()
+    ax2.yaxis.set_visible(False)
+
   tnames = [ t for t in name.split(';') if "CON_" not in t ]
   tnames = [ "|".join(t.split("|")[1:]) for t in tnames ]
-  for t in tnames:
-    print "OUT:", t
+  if pdf == pdf1:
+    for t in tnames:
+      print "OUT:", t
   ax1.set_title("\n".join(tnames), loc="right")
   ax1.set_yticks(xtics)
   ax1.set_xticks([-1,0,1,2,3,4])
@@ -321,50 +317,65 @@ def process(name, Ls, Hs, Rs):
   ax1.axhline( real_mark, -5, 5, linestyle='-', linewidth=1, c='black')
   ax1.set_xlim([-1,4.5])
   ax1.set_xlabel("$log_2(H/L)$")
-  
-  ax2.set_title("(MW: "+str(real_mass)+" kDa)", loc="left")
+
   sumL = np.sum(Ls)
   sumH = np.sum(Hs)
-  #perctL = Ls / sumL * 100
-  #perctH = Hs / sumH * 100
-  #txtL = [ str(t)+"%" for t in perctL ]
-  #ax2.plot(Ls,xtics, linewidth=2)
-  #ax2.plot(Hs,xtics)
 
-  if y_max_1>10.0:
+  ne0 = ceil(log10(y_max_0 + 10.0)) - 1
+  base_ten0 = 10.0**ne0
+
+  if y_max_1 > 10.0:
     ne = ceil(log10(y_max_1)) - 1
   else:
     ne = 0
   base_ten = 10.0**ne
-  print("peak2:", y_max_1, ne, base_ten)
+
+  print("base:", y_max_0, ne0, y_max_1, ne)
   
-  ax2.barh( xtics-0.2, np.array(Ls)/base_ten, 0.4, color = "red" )
-  ax2.barh( xtics+0.2, np.array(Hs)/base_ten, 0.4, color = "blue")
-  #gap = (sumL+sumH)/2.0/100
+  if pdf == pdf1:
+    t_scale = 1.02
+    ax2.set_title("(MW: "+str(real_mass)+" kDa)", loc="left")
+    ax2.barh( xtics-0.2, np.array(Ls)/base_ten, 0.4, color = "red" )
+    ax2.barh( xtics+0.2, np.array(Hs)/base_ten, 0.4, color = "blue")
+    ax2.set_xlim([0, y_max_1*1.2/base_ten])
+    ax2.set_xlabel(r"$Int_{LFQ}( \times 10^{%d})$" % ne)
 
-  #zoom in
+    ax3.barh( xtics-0.2, np.array(Ls)/base_ten0, 0.4, color = "red" )
+    ax3.barh( xtics+0.2, np.array(Hs)/base_ten0, 0.4, color = "blue")
+    ax3.set_xlim([np.max([y_max_1*1.2,y_max_0*0.2])/base_ten0, y_max_0*1.35/base_ten0])
+    for i, l, h in zip( xtics, Ls, Hs ):
+      pL = l / sumL * 100
+      pH = h / sumH * 100
+      if pL > 0.01: ax3.text( y_max_0*t_scale/base_ten0, i-0.1, "%4.2f%%" % pL, fontsize=7, color="red" )
+      elif pL>0: ax3.text( y_max_0*t_scale/base_ten0, i-0.1, "<0.01%", fontsize=5, color="red" )
+      if pH > 0.01: ax3.text( y_max_0*t_scale/base_ten0, i+0.3, "%4.2f%%" % pH, fontsize=7, color="blue" )
+      elif pH>0: ax3.text( y_max_0*t_scale/base_ten0, i+0.3, "<0.01%", fontsize=5, color="blue" )
 
-  #new_Ls = []
-  #new_Hs = []
-  #for l, h in zip(Ls, Hs):
-  #  new_Ls.append(l/y_max_1*y_max_2/1.5)
-  #  new_Hs.append(h/y_max_1*y_max_2/1.5)
-  #ax2.barh( xtics-0.2, new_Ls, 0.2, color='orange' )
-  #ax2.barh( xtics,     new_Hs, 0.2, color='red' )
+    for i in xrange(Nfrac+1):
+      ax3.axhline(i+0.5, y_max_1*1.2, y_max_0*1.2/base_ten0, linestyle='--', linewidth=0.4, c='grey', alpha=0.5)
+    ax3.set_xlabel(r"$Int_{LFQ} ( \times 10^{%d})$" % ne0)
+    
+    #break
+    d = 1.6  # proportion of vertical to horizontal extent of the slanted line
+    kwargs = dict(marker=[(-1, -d), (1, d)], markersize=9, linestyle="none", color='k', mec='k', mew=1, clip_on=False)
+    ax2.plot([1, 1], [0, 1], transform=ax2.transAxes, **kwargs)
+    ax3.plot([0, 0], [0, 1], transform=ax3.transAxes, **kwargs)
+  else:
+    t_scale = 1.02
+    ax2.set_title("(MW: "+str(real_mass)+" kDa)", loc="left")
+    ax2.barh( xtics-0.2, np.array(Ls)/base_ten0, 0.4, color = "red" )
+    ax2.barh( xtics+0.2, np.array(Hs)/base_ten0, 0.4, color = "blue")
+    ax2.set_xlim([0, y_max_0*1.2/base_ten0])
+    for i, l, h in zip( xtics, Ls, Hs ):
+      pL = l / sumL * 100
+      pH = h / sumH * 100
+      if pL > 0.01: ax2.text( y_max_0*t_scale/base_ten0, i-0.1, "%4.2f%%" % pL, fontsize=7, color="red" )
+      elif pL>0: ax2.text( y_max_0*t_scale/base_ten0, i-0.1, "<0.01%", fontsize=5, color="red" )
+      if pH > 0.01: ax2.text( y_max_0*t_scale/base_ten0, i+0.3, "%4.2f%%" % pH, fontsize=7, color="blue" )
+      elif pH>0: ax2.text( y_max_0*t_scale/base_ten0, i+0.3, "<0.01%", fontsize=5, color="blue" )
+    ax2.set_xlabel(r"$Int_{LFQ} ( \times 10^{%d})$" % ne0)
 
-  for i, l, h in zip( xtics, Ls, Hs ):
-    pL = l / sumL * 100
-    pH = h / sumH * 100
-    if pL > 0.05: ax2.text( y_max_1*1.22/base_ten, i-0.1, "%4.2f%%" % pL, fontsize=7, color="red" )
-    if pH > 0.05: ax2.text( y_max_1*1.22/base_ten, i+0.3, "%4.2f%%" % pH, fontsize=7, color="blue" )
-
-  ax2.set_xlim([0, y_max_1*1.2/base_ten])
-  ax2.set_xlabel(r"$LFQ( \times 10^%d)$" % ne)
-  #plt.grid(True, axis='y', linestyle="--", alpha=0.5)
-  for i in xrange(Nfrac+1):
-    ax2.axhline(i+0.5, 0, y_max_1*1.2/base_ten, linestyle='--', linewidth=0.4, c='grey', alpha=0.5)
-
-  f.subplots_adjust(wspace=0)
+  #f.subplots_adjust(wspace=0)
   pdf.savefig(f)
   plt.close('all')
   print("...")
