@@ -246,7 +246,10 @@ def process(name, Ls, Hs, Rs):
     pdf = pdf2
   with_gap = False
   for ii in range(top_band+1, mono_ndx):
-    if isnan(Rs[ii]):
+    #the current criteria is too stringent
+    #two continuous peaks can not be splitted
+    # or Ls[ii]<Ls[top_band] or Hs[ii]<Hs[top_band]
+    if isnan(Rs[ii]): 
       print("Gap found at:", ii+1)
       with_gap = True
       break
